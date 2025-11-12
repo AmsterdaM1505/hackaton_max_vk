@@ -199,7 +199,7 @@ class Database:
             if row:
                 user = dict(row)
                 # Десериализуем JSON поле categories
-                if user['categories']:
+                if user['categories'] and isinstance(user['categories'], str):
                     user['categories'] = json.loads(user['categories'])
                 return user
             return None
