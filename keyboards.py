@@ -229,3 +229,33 @@ def get_chat_buttons(match_id: str) -> ButtonsPayload:
             CallbackButton(text="❌ Прервать чат", payload="/stop_chat")
         ]
     ])
+
+
+def get_profile_action_buttons() -> ButtonsPayload:
+    """Inline кнопки для действий с профилем"""
+    return ButtonsPayload(buttons=[
+        [
+            CallbackButton(text="✏️ Редактировать", payload="/edit"),
+            CallbackButton(text="🏠 В меню", payload="/menu")
+        ]
+    ])
+
+
+def get_back_to_menu_button() -> ButtonsPayload:
+    """Inline кнопка для возврата в меню"""
+    return ButtonsPayload(buttons=[
+        [
+            CallbackButton(text="🏠 В меню", payload="/menu")
+        ]
+    ])
+
+
+def get_invalid_action_message() -> str:
+    """Сообщение при неверном действии"""
+    return """
+⚠️ Команда не распознана
+
+Пожалуйста, используй кнопки в меню или введи команду:
+- `/start` - Начать
+- `/menu` - Главное меню
+"""

@@ -16,7 +16,9 @@ from keyboards import (
     get_profile_view_keyboard, format_profile_card, get_edit_profile_keyboard,
     get_browse_category_keyboard, format_matches_list, get_chat_keyboard,
     get_main_menu_buttons, get_gender_buttons, get_categories_buttons,
-    get_profile_view_buttons, get_edit_profile_buttons, get_chat_buttons
+    get_profile_view_buttons, get_edit_profile_buttons, get_chat_buttons,
+    get_profile_action_buttons, get_back_to_menu_button, get_invalid_action_message,
+    get_browse_category_buttons
 )
 from utils import (
     validate_name, validate_age, validate_bio, validate_gender,
@@ -160,14 +162,20 @@ class DatingBotHandlers:
     # ===== ОСНОВНЫЕ КОМАНДЫ =====
 
     async def cmd_start(self, event: MessageCreated):
-        """Команда /start"""
+        """Команда /start - автоматическая регистрация и в меню"""
         user_id = str(event.message.sender.user_id)
         username = event.message.sender.username or event.message.sender.first_name
+        first_name = event.message.sender.first_name or "Друг"
 
         # Проверяем, есть ли уже профиль
         if db.user_exists(user_id):
+            # Пользователь уже зарегистрирован
             unread_count = db.get_unread_notifications_count(user_id)
-            await event.message.answer(MESSAGES['profile_exists'])
+            user = db.get_user(user_id)
+
+            if user:
+                welcome_msg = f"👋 Добро пожаловать, {user['name']}!"
+                await event.message.answer(welcome_msg)
 
             # Отправляем меню с inline кнопками
             buttons = get_main_menu_buttons(unread_count)
@@ -177,10 +185,34 @@ class DatingBotHandlers:
             )
             db.set_user_state(user_id, UserState.MAIN_MENU.value)
         else:
-            # Начинаем создание профиля
-            await event.message.answer(MESSAGES['start'])
-            await event.message.answer(MESSAGES['enter_name'])
-            db.set_user_state(user_id, UserState.ENTER_NAME.value)
+            # Автоматическая регистрация новых пользователей
+            success = db.create_user(
+                user_id=user_id,
+                username=username,
+                name=first_name,
+                age=18,  # Дефолтный возраст
+                gender='male',  # Дефолтный пол
+                bio='Новый пользователь',  # Дефолтное описание
+                categories=['love']  # Дефолтная категория
+            )
+
+            if success:
+                await event.message.answer(
+                    f"🎉 Привет, {first_name}!\n\n"
+                    f"Ты успешно зарегистрирован! 🎊\n\n"
+                    f"Не забудь отредактировать свой профиль, чтобы другие могли тебя найти."
+                )
+
+                # Отправляем меню
+                buttons = get_main_menu_buttons(0)
+                await event.message.answer(
+                    "📋 *Главное меню*\n\nВыбери действие:",
+                    attachments=[buttons.pack()]
+                )
+                db.set_user_state(user_id, UserState.MAIN_MENU.value)
+                logger.info(f"✅ Новый пользователь зарегистрирован: {user_id} - {first_name}")
+            else:
+                await event.message.answer("❌ Ошибка регистрации. Попробуй позже.")
 
     async def cmd_menu(self, event: MessageCreated):
         """Возврат в главное меню"""
@@ -202,23 +234,34 @@ class DatingBotHandlers:
         user = db.get_user(user_id)
 
         if not user:
-            await event.message.answer("❌ Сначала создай свой профиль!\n\n/start")
+            await event.message.answer("❌ Профиль не найден!\n\nПопробуй /start")
             return
 
         profile_text = format_user_profile(user)
         await event.message.answer(profile_text)
-        await event.message.answer("\n" + get_edit_profile_keyboard())
+
+        db.set_user_state(user_id, UserState.MAIN_MENU.value)
+
+        buttons = get_profile_action_buttons()
+        await event.message.answer(
+            "Что ты хочешь сделать?",
+            attachments=[buttons.pack()]
+        )
 
     async def cmd_browse_start(self, event: MessageCreated):
         """Начало просмотра анкет"""
         user_id = str(event.message.sender.user_id)
 
         if not db.user_exists(user_id):
-            await event.message.answer("❌ Сначала создай свой профиль!\n\n/start")
+            await event.message.answer("❌ Профиль не найден!\n\nПопробуй /start")
             return
 
-        await event.message.answer(get_browse_category_keyboard())
         db.set_user_state(user_id, UserState.CHOOSE_CATEGORY.value)
+        buttons = get_browse_category_buttons()
+        await event.message.answer(
+            "👀 Выбери категорию анкет:",
+            attachments=[buttons.pack()]
+        )
 
     async def cmd_browse_category(self, event: MessageCreated):
         """Просмотр анкет в выбранной категории"""
@@ -234,7 +277,11 @@ class DatingBotHandlers:
 
         if not profile:
             await event.message.answer(MESSAGES['no_profiles'])
-            await event.message.answer(get_browse_category_keyboard())
+            buttons = get_browse_category_buttons()
+            await event.message.answer(
+                "Выбери другую категорию или вернись в меню:",
+                attachments=[buttons.pack()]
+            )
             return
 
         # Сохраняем текущий профиль и категорию в состояние
@@ -246,7 +293,12 @@ class DatingBotHandlers:
         # Показываем карточку профиля
         card = format_profile_card(profile)
         await event.message.answer(card)
-        await event.message.answer(get_profile_view_keyboard(profile['user_id']))
+
+        buttons = get_profile_view_buttons()
+        await event.message.answer(
+            "Выбери действие:",
+            attachments=[buttons.pack()]
+        )
 
     async def cmd_like(self, event: MessageCreated):
         """Лайк профилю"""
@@ -358,7 +410,15 @@ class DatingBotHandlers:
             if user:
                 matches.append(user)
 
+        db.set_user_state(user_id, UserState.CHOOSE_MATCH.value)
         await event.message.answer(format_matches_list(matches))
+
+        # Показываем кнопку возврата
+        buttons = get_back_to_menu_button()
+        await event.message.answer(
+            "Вернись в меню:",
+            attachments=[buttons.pack()]
+        )
 
     async def cmd_matches(self, event: MessageCreated):
         """Показать мэтчи и чаты"""
@@ -371,7 +431,22 @@ class DatingBotHandlers:
             if user:
                 matches.append(user)
 
+        db.set_user_state(user_id, UserState.CHOOSE_MATCH.value)
         await event.message.answer(format_matches_list(matches))
+
+        # Если есть мэтчи, показываем кнопку возврата
+        if matches:
+            buttons = get_back_to_menu_button()
+            await event.message.answer(
+                "Выбери из списка выше или вернись в меню:",
+                attachments=[buttons.pack()]
+            )
+        else:
+            buttons = get_back_to_menu_button()
+            await event.message.answer(
+                "Вернись в меню:",
+                attachments=[buttons.pack()]
+            )
 
     async def cmd_notifications(self, event: MessageCreated):
         """Показать уведомления"""
@@ -398,6 +473,8 @@ class DatingBotHandlers:
             # Отмечаем все уведомления как прочитанные
             db.mark_all_notifications_as_read(user_id)
 
+        db.set_user_state(user_id, UserState.MAIN_MENU.value)
+
         # Возвращаемся в меню
         await self.send_main_menu(event)
 
@@ -413,23 +490,46 @@ class DatingBotHandlers:
             match_id = text.split('_', 1)[1]
         except (IndexError, ValueError):
             await event.message.answer("⚠️ Неверный формат команды")
+            buttons = get_back_to_menu_button()
+            await event.message.answer(
+                "Вернись в меню:",
+                attachments=[buttons.pack()]
+            )
             return
 
         # Проверяем, что пользователь существует
         match_user = db.get_user(match_id)
         if not match_user:
             await event.message.answer("⚠️ Пользователь не найден")
+            buttons = get_back_to_menu_button()
+            await event.message.answer(
+                "Вернись в меню:",
+                attachments=[buttons.pack()]
+            )
             return
 
         # Проверяем, что это мэтч (взаимная симпатия)
         if match_id not in db.get_matches(user_id):
-            await event.message.answer("⚠️ Это не ваш мэтч. Сначала нужна взаимная симпатия!")
+            await event.message.answer(
+                "⚠️ Это не ваш мэтч.\n\n"
+                "Сначала нужна взаимная симпатия!"
+            )
+            buttons = get_back_to_menu_button()
+            await event.message.answer(
+                "Вернись в меню:",
+                attachments=[buttons.pack()]
+            )
             return
 
         # Проверяем, что чат не заблокирован
         if db.is_chat_blocked(user_id, match_id):
             await event.message.answer(
                 "⛔ Чат с этим пользователем был прерван и больше невозможен."
+            )
+            buttons = get_back_to_menu_button()
+            await event.message.answer(
+                "Вернись в меню:",
+                attachments=[buttons.pack()]
             )
             return
 
@@ -439,8 +539,8 @@ class DatingBotHandlers:
         })
 
         await event.message.answer(
-            f"💬 Вы вошли в чат с {match_user['name']}\n"
-            f"Напиши своё сообщение или команду /stop_chat для выхода"
+            f"💬 Вы вошли в чат с {match_user['name']}\n\n"
+            f"Напиши своё сообщение (введи текст или команду /stop_chat для выхода)"
         )
 
     async def cmd_stop_chat(self, event: MessageCreated):
@@ -482,7 +582,11 @@ class DatingBotHandlers:
             await event.message.answer("❌ Сначала создай свой профиль!\n\n/start")
             return
 
-        await event.message.answer(get_edit_profile_keyboard())
+        buttons = get_edit_profile_buttons()
+        await event.message.answer(
+            "Что ты хочешь изменить?",
+            attachments=[buttons.pack()]
+        )
 
     async def cmd_edit_name(self, event: MessageCreated):
         """Редактировать имя"""
@@ -500,7 +604,11 @@ class DatingBotHandlers:
         """Редактировать пол"""
         user_id = str(event.message.sender.user_id)
         db.set_user_state(user_id, UserState.ENTER_GENDER.value, {'editing': True})
-        await event.message.answer(get_gender_keyboard())
+        buttons = get_gender_buttons()
+        await event.message.answer(
+            "Выбери свой пол:",
+            attachments=[buttons.pack()]
+        )
 
     async def cmd_edit_bio(self, event: MessageCreated):
         """Редактировать описание"""
@@ -512,7 +620,11 @@ class DatingBotHandlers:
         """Редактировать категории"""
         user_id = str(event.message.sender.user_id)
         db.set_user_state(user_id, UserState.CHOOSE_CATEGORIES.value, {'editing': True})
-        await event.message.answer(get_categories_keyboard())
+        buttons = get_categories_buttons()
+        await event.message.answer(
+            "Выбери категории (можешь несколько):",
+            attachments=[buttons.pack()]
+        )
 
     async def cmd_gender_select(self, event: MessageCreated):
         """Выбор пола"""
@@ -542,6 +654,7 @@ class DatingBotHandlers:
             'age': data.get('age'),
             'gender': gender
         })
+        await event.message.answer("Спасибо! Теперь расскажи о себе:")
         await event.message.answer(MESSAGES['enter_bio'])
 
     async def cmd_done_categories(self, event: MessageCreated):
@@ -630,13 +743,28 @@ class DatingBotHandlers:
         elif state == UserState.IN_CHAT.value:
             await self.handle_chat_message(event, data)
 
-        # По умолчанию - показываем меню
+        # По умолчанию - показываем меню с предупреждением
         else:
-            unread_count = db.get_unread_notifications_count(user_id)
+            # Если пользователь вообще не зарегистрирован
+            if not db.user_exists(user_id):
+                await event.message.answer(
+                    "👤 Сначала зарегистрируйся командой /start"
+                )
+                return
+
+            # Некорректное действие - предлагаем меню
             await event.message.answer(
-                "⚠️ Команда не распознана. Используй меню:\n\n" +
-                get_main_menu_keyboard(unread_count)
+                "⚠️ Команда не распознана.\n\n"
+                "Используй кнопки в меню или вернись в главное меню:"
             )
+
+            unread_count = db.get_unread_notifications_count(user_id)
+            buttons = get_main_menu_buttons(unread_count)
+            await event.message.answer(
+                "📋 *Главное меню*\n\nВыбери действие:",
+                attachments=[buttons.pack()]
+            )
+            db.set_user_state(user_id, UserState.MAIN_MENU.value)
 
     async def handle_name_input(self, event: MessageCreated, data: dict):
         """Обработка ввода имени"""
@@ -687,7 +815,11 @@ class DatingBotHandlers:
             'name': data.get('name'),
             'age': age
         })
-        await event.message.answer(get_gender_keyboard())
+        buttons = get_gender_buttons()
+        await event.message.answer(
+            "Выбери свой пол:",
+            attachments=[buttons.pack()]
+        )
 
     async def handle_bio_input(self, event: MessageCreated, data: dict):
         """Обработка ввода описания"""
@@ -716,7 +848,11 @@ class DatingBotHandlers:
             'bio': bio,
             'categories': []
         })
-        await event.message.answer(get_categories_keyboard())
+        buttons = get_categories_buttons()
+        await event.message.answer(
+            "Выбери категории (можешь несколько):",
+            attachments=[buttons.pack()]
+        )
 
     async def handle_category_choice(self, event: MessageCreated, data: dict):
         """Обработка выбора категорий"""
@@ -733,14 +869,32 @@ class DatingBotHandlers:
                 data['categories'] = categories
 
                 db.set_user_state(user_id, UserState.CHOOSE_CATEGORIES.value, data)
+                await event.message.answer(f"✅ {CATEGORIES[category]} выбрана!")
+
+                buttons = get_categories_buttons()
                 await event.message.answer(
-                    f"✅ {CATEGORIES[category]} выбрана!\n\n" +
-                    get_categories_keyboard()
+                    "Выбери ещё категории или заверши выбор:",
+                    attachments=[buttons.pack()]
                 )
             else:
-                await event.message.answer("⚠️ Эта категория уже выбрана")
+                await event.message.answer(
+                    f"⚠️ {CATEGORIES[category]} уже выбрана!\n\n"
+                    f"Выбери другую или завершись выбор:"
+                )
+                buttons = get_categories_buttons()
+                await event.message.answer(
+                    "Выбери действие:",
+                    attachments=[buttons.pack()]
+                )
         else:
-            await event.message.answer("⚠️ Выбери категорию из списка")
+            await event.message.answer(
+                "⚠️ Пожалуйста, выбери категорию из списка кнопок ниже!"
+            )
+            buttons = get_categories_buttons()
+            await event.message.answer(
+                "Выбери категории:",
+                attachments=[buttons.pack()]
+            )
 
     async def handle_chat_message(self, event: MessageCreated, data: dict):
         """Обработка сообщений в чате"""
@@ -777,14 +931,22 @@ class DatingBotHandlers:
         user_id = str(event.message.sender.user_id)
 
         if not category or category not in CATEGORIES:
-            await event.message.answer(get_browse_category_keyboard())
+            buttons = get_browse_category_buttons()
+            await event.message.answer(
+                "Выбери категорию:",
+                attachments=[buttons.pack()]
+            )
             return
 
         profile = db.get_profile_for_user(user_id, category)
 
         if not profile:
             await event.message.answer(MESSAGES['no_profiles'])
-            await event.message.answer(get_browse_category_keyboard())
+            buttons = get_browse_category_buttons()
+            await event.message.answer(
+                "Выбери другую категорию:",
+                attachments=[buttons.pack()]
+            )
             db.set_user_state(user_id, UserState.CHOOSE_CATEGORY.value)
             return
 
@@ -795,4 +957,9 @@ class DatingBotHandlers:
 
         card = format_profile_card(profile)
         await event.message.answer(card)
-        await event.message.answer(get_profile_view_keyboard(profile['user_id']))
+
+        buttons = get_profile_view_buttons()
+        await event.message.answer(
+            "Выбери действие:",
+            attachments=[buttons.pack()]
+        )
