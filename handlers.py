@@ -162,22 +162,22 @@ class DatingBotHandlers:
         # ===== CALLBACK ОБРАБОТЧИКИ (для inline кнопок) =====
 
         # Стартовая команда (callback)
-        @self.dp.message_callback('/start')
+        @self.dp.message_callback(F.message.body.text == '/start')
         async def handle_start_callback(event: MessageCreated):
             await self.cmd_start(event)
 
         # Главное меню (callback)
-        @self.dp.message_callback('/menu')
+        @self.dp.message_callback(F.message.body.text == '/menu')
         async def handle_menu_callback(event: MessageCreated):
             await self.cmd_menu(event)
 
         # Просмотр профиля (callback)
-        @self.dp.message_callback('/view_profile')
+        @self.dp.message_callback(F.message.body.text == '/view_profile')
         async def handle_view_profile_callback(event: MessageCreated):
             await self.cmd_view_profile(event)
 
         # Просмотр анкет (callback)
-        @self.dp.message_callback('/browse')
+        @self.dp.message_callback(F.message.body.text == '/browse')
         async def handle_browse_callback(event: MessageCreated):
             await self.cmd_browse_start(event)
 
@@ -189,62 +189,62 @@ class DatingBotHandlers:
             await self.cmd_browse_category(event)
 
         # Лайк (callback)
-        @self.dp.message_callback('/like')
+        @self.dp.message_callback(F.message.body.text == '/like')
         async def handle_like_callback(event: MessageCreated):
             await self.cmd_like(event)
 
         # Дизлайк (callback)
-        @self.dp.message_callback('/dislike')
+        @self.dp.message_callback(F.message.body.text == '/dislike')
         async def handle_dislike_callback(event: MessageCreated):
             await self.cmd_dislike(event)
 
         # Пропустить (callback)
-        @self.dp.message_callback('/skip')
+        @self.dp.message_callback(F.message.body.text == '/skip')
         async def handle_skip_callback(event: MessageCreated):
             await self.cmd_skip(event)
 
         # Лайки и мэтчи (callback)
-        @self.dp.message_callback('/likes')
+        @self.dp.message_callback(F.message.body.text == '/likes')
         async def handle_likes_callback(event: MessageCreated):
             await self.cmd_likes(event)
 
         # Сообщения (callback)
-        @self.dp.message_callback('/messages')
+        @self.dp.message_callback(F.message.body.text == '/messages')
         async def handle_messages_callback(event: MessageCreated):
             await self.cmd_matches(event)
 
         # Уведомления (callback)
-        @self.dp.message_callback('/notifications')
+        @self.dp.message_callback(F.message.body.text == '/notifications')
         async def handle_notifications_callback(event: MessageCreated):
             await self.cmd_notifications(event)
 
         # Редактирование профиля (callback)
-        @self.dp.message_callback('/edit')
+        @self.dp.message_callback(F.message.body.text == '/edit')
         async def handle_edit_callback(event: MessageCreated):
             await self.cmd_edit_menu(event)
 
         # Редактирование имени (callback)
-        @self.dp.message_callback('/edit_name')
+        @self.dp.message_callback(F.message.body.text == '/edit_name')
         async def handle_edit_name_callback(event: MessageCreated):
             await self.cmd_edit_name(event)
 
         # Редактирование возраста (callback)
-        @self.dp.message_callback('/edit_age')
+        @self.dp.message_callback(F.message.body.text == '/edit_age')
         async def handle_edit_age_callback(event: MessageCreated):
             await self.cmd_edit_age(event)
 
         # Редактирование пола (callback)
-        @self.dp.message_callback('/edit_gender')
+        @self.dp.message_callback(F.message.body.text == '/edit_gender')
         async def handle_edit_gender_callback(event: MessageCreated):
             await self.cmd_edit_gender(event)
 
         # Редактирование описания (callback)
-        @self.dp.message_callback('/edit_bio')
+        @self.dp.message_callback(F.message.body.text == '/edit_bio')
         async def handle_edit_bio_callback(event: MessageCreated):
             await self.cmd_edit_bio(event)
 
         # Редактирование категорий (callback)
-        @self.dp.message_callback('/edit_categories')
+        @self.dp.message_callback(F.message.body.text == '/edit_categories')
         async def handle_edit_categories_callback(event: MessageCreated):
             await self.cmd_edit_categories(event)
 
@@ -254,7 +254,7 @@ class DatingBotHandlers:
             await self.cmd_gender_select(event)
 
         # Завершение выбора категорий (callback)
-        @self.dp.message_callback('/done_categories')
+        @self.dp.message_callback(F.message.body.text == '/done_categories')
         async def handle_done_categories_callback(event: MessageCreated):
             await self.cmd_done_categories(event)
 
@@ -264,7 +264,7 @@ class DatingBotHandlers:
             await self.cmd_start_chat(event)
 
         # Прерывание чата (callback)
-        @self.dp.message_callback('/stop_chat')
+        @self.dp.message_callback(F.message.body.text == '/stop_chat')
         async def handle_stop_chat_callback(event: MessageCreated):
             await self.cmd_stop_chat(event)
 
