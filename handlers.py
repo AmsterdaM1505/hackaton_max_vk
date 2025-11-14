@@ -6,7 +6,8 @@ import asyncio
 import logging
 from typing import Optional
 from maxapi import Dispatcher, F, Bot
-from maxapi.types import MessageCreated
+from maxapi.types import MessageCreated, Command, CallbackButton
+from maxapi.filters.callback_payload import CallbackPayload
 
 from config import MESSAGES, BOT_TOKEN, CATEGORIES
 from database import db
@@ -161,114 +162,75 @@ class DatingBotHandlers:
 
         # ===== CALLBACK ОБРАБОТЧИКИ (для inline кнопок) =====
 
-        # Стартовая команда (callback)
-        @self.dp.message_callback(F.message.body.text == '/start')
-        async def handle_start_callback(event: MessageCreated):
-            await self.cmd_start(event)
+        @self.dp.message_callback()
+        async def handle_command_callback(event: MessageCreated):
+            await self.cmd_command(event)
 
-        # Главное меню (callback)
-        @self.dp.message_callback(F.message.body.text == '/menu')
-        async def handle_menu_callback(event: MessageCreated):
-            await self.cmd_menu(event)
-
-        # Просмотр профиля (callback)
-        @self.dp.message_callback(F.message.body.text == '/view_profile')
-        async def handle_view_profile_callback(event: MessageCreated):
-            await self.cmd_view_profile(event)
-
-        # Просмотр анкет (callback)
-        @self.dp.message_callback(F.message.body.text == '/browse')
-        async def handle_browse_callback(event: MessageCreated):
-            await self.cmd_browse_start(event)
-
-        # Выбор категории для просмотра (callback)
-        @self.dp.message_callback(F.message.body.text.in_(
-            [f'/{cat}' for cat in CATEGORIES.keys()]
-        ))
-        async def handle_category_select_callback(event: MessageCreated):
-            await self.cmd_browse_category(event)
-
-        # Лайк (callback)
-        @self.dp.message_callback(F.message.body.text == '/like')
-        async def handle_like_callback(event: MessageCreated):
-            await self.cmd_like(event)
-
-        # Дизлайк (callback)
-        @self.dp.message_callback(F.message.body.text == '/dislike')
-        async def handle_dislike_callback(event: MessageCreated):
-            await self.cmd_dislike(event)
-
-        # Пропустить (callback)
-        @self.dp.message_callback(F.message.body.text == '/skip')
-        async def handle_skip_callback(event: MessageCreated):
-            await self.cmd_skip(event)
-
-        # Лайки и мэтчи (callback)
-        @self.dp.message_callback(F.message.body.text == '/likes')
-        async def handle_likes_callback(event: MessageCreated):
-            await self.cmd_likes(event)
-
-        # Сообщения (callback)
-        @self.dp.message_callback(F.message.body.text == '/messages')
-        async def handle_messages_callback(event: MessageCreated):
-            await self.cmd_matches(event)
-
-        # Уведомления (callback)
-        @self.dp.message_callback(F.message.body.text == '/notifications')
-        async def handle_notifications_callback(event: MessageCreated):
-            await self.cmd_notifications(event)
-
-        # Редактирование профиля (callback)
-        @self.dp.message_callback(F.message.body.text == '/edit')
-        async def handle_edit_callback(event: MessageCreated):
-            await self.cmd_edit_menu(event)
-
-        # Редактирование имени (callback)
-        @self.dp.message_callback(F.message.body.text == '/edit_name')
-        async def handle_edit_name_callback(event: MessageCreated):
-            await self.cmd_edit_name(event)
-
-        # Редактирование возраста (callback)
-        @self.dp.message_callback(F.message.body.text == '/edit_age')
-        async def handle_edit_age_callback(event: MessageCreated):
-            await self.cmd_edit_age(event)
-
-        # Редактирование пола (callback)
-        @self.dp.message_callback(F.message.body.text == '/edit_gender')
-        async def handle_edit_gender_callback(event: MessageCreated):
-            await self.cmd_edit_gender(event)
-
-        # Редактирование описания (callback)
-        @self.dp.message_callback(F.message.body.text == '/edit_bio')
-        async def handle_edit_bio_callback(event: MessageCreated):
-            await self.cmd_edit_bio(event)
-
-        # Редактирование категорий (callback)
-        @self.dp.message_callback(F.message.body.text == '/edit_categories')
-        async def handle_edit_categories_callback(event: MessageCreated):
-            await self.cmd_edit_categories(event)
-
-        # Выбор пола (callback)
-        @self.dp.message_callback(F.message.body.text.in_(['/gender_male', '/gender_female']))
-        async def handle_gender_select_callback(event: MessageCreated):
-            await self.cmd_gender_select(event)
-
-        # Завершение выбора категорий (callback)
-        @self.dp.message_callback(F.message.body.text == '/done_categories')
-        async def handle_done_categories_callback(event: MessageCreated):
-            await self.cmd_done_categories(event)
-
-        # Вход в чат с пользователем (callback)
-        @self.dp.message_callback(F.message.body.text.startswith('/chat_'))
-        async def handle_chat_start_callback(event: MessageCreated):
-            await self.cmd_start_chat(event)
-
-        # Прерывание чата (callback)
-        @self.dp.message_callback(F.message.body.text == '/stop_chat')
-        async def handle_stop_chat_callback(event: MessageCreated):
-            await self.cmd_stop_chat(event)
 
     # ===== ОСНОВНЫЕ КОМАНДЫ =====
+
+    async def cmd_command(self, event: MessageCreated):
+        command = event.callback.payload
+        match command:
+            # --- Основное меню ---
+            case '/start':
+                await self.cmd_start(event)
+            case '/menu':
+                await self.cmd_menu(event)
+
+            # --- Просмотр профиля ---
+            case '/view_profile':
+                await self.cmd_view_profile(event)
+
+            # --- Просмотр анкет ---
+            case '/browse':
+                await self.cmd_browse_start(event)
+            case cmd if cmd in [f"/{cat}" for cat in CATEGORIES.keys()]:
+                await self.cmd_browse_category(event)
+
+            # --- Действия с анкетами ---
+            case '/like':
+                await self.cmd_like(event)
+            case '/dislike':
+                await self.cmd_dislike(event)
+            case '/skip':
+                await self.cmd_skip(event)
+
+            # --- Лайки и сообщения ---
+            case '/likes':
+                await self.cmd_likes(event)
+            case '/messages':
+                await self.cmd_matches(event)
+            case '/notifications':
+                await self.cmd_notifications(event)
+
+            # --- Редактирование профиля ---
+            case '/edit':
+                await self.cmd_edit_menu(event)
+            case '/edit_name':
+                await self.cmd_edit_name(event)
+            case '/edit_age':
+                await self.cmd_edit_age(event)
+            case '/edit_gender':
+                await self.cmd_edit_gender(event)
+            case '/edit_bio':
+                await self.cmd_edit_bio(event)
+            case '/edit_categories':
+                await self.cmd_edit_categories(event)
+            case '/done_categories':
+                await self.cmd_done_categories(event)
+            case cmd if cmd in ['/gender_male', '/gender_female']:
+                await self.cmd_gender_select(event)
+
+            # --- Чат ---
+            case cmd if cmd.startswith('/chat_'):
+                await self.cmd_start_chat(event)
+            case '/stop_chat':
+                await self.cmd_stop_chat(event)
+
+            # --- Команда не найдена ---
+            case _:
+                await event.answer("⚠️ Неизвестная команда, попробуйте /menu")
 
     async def cmd_start(self, event: MessageCreated):
         """Команда /start - автоматическая регистрация и в меню"""
@@ -295,8 +257,7 @@ class DatingBotHandlers:
             db.set_user_state(user_id, UserState.MAIN_MENU.value)
         else:
             # Автоматическая регистрация новых пользователей
-            if user_id != "78089254":
-                success = db.create_user(
+            success = db.create_user(
                 user_id=user_id,
                 username=username,
                 name=first_name,
@@ -304,9 +265,7 @@ class DatingBotHandlers:
                 gender='male',  # Дефолтный пол
                 bio='Новый пользователь',  # Дефолтное описание
                 categories=['love']  # Дефолтная категория
-                )
-
-
+            )
 
             if success:
                 await event.message.answer(
@@ -341,10 +300,8 @@ class DatingBotHandlers:
         )
 
     async def cmd_view_profile(self, event: MessageCreated):
-
-        print("jdnlisnfibnpvfine")
         """Показать свой профиль"""
-        user_id = str(event.message.sender.user_id)
+        user_id = str(event.message.recipient.user_id)
         user = db.get_user(user_id)
 
         if not user:
@@ -364,7 +321,7 @@ class DatingBotHandlers:
 
     async def cmd_browse_start(self, event: MessageCreated):
         """Начало просмотра анкет"""
-        user_id = str(event.message.sender.user_id)
+        user_id = str(event.message.recipient.user_id)
 
         if not db.user_exists(user_id):
             await event.message.answer("❌ Профиль не найден!\n\nПопробуй /start")
@@ -379,8 +336,8 @@ class DatingBotHandlers:
 
     async def cmd_browse_category(self, event: MessageCreated):
         """Просмотр анкет в выбранной категории"""
-        user_id = str(event.message.sender.user_id)
-        category = event.message.body.text[1:]  # Убираем '/'
+        user_id = str(event.message.recipient.user_id)
+        category = event.callback.payload[1:]  # Убираем '/'
 
         if category not in CATEGORIES:
             await event.message.answer("❌ Неизвестная категория")
@@ -416,27 +373,25 @@ class DatingBotHandlers:
 
     async def cmd_like(self, event: MessageCreated):
         """Лайк профилю"""
-        user_id = str(event.message.sender.user_id)
-        state, data = db.get_user_state(user_id)
+        user_id = str(event.message.recipient.user_id)
+        state, other_id = db.get_user_state(user_id)
 
-        if state != UserState.VIEWING_PROFILE.value or not data:
+        if state != UserState.VIEWING_PROFILE.value or not other_id:
             await event.message.answer("⚠️ Сначала выбери анкету для просмотра")
             return
 
-        profile = data.get('current_profile')
-        if not profile:
+        if not other_id:
             return
 
-        profile_id = profile['user_id']
         current_user = db.get_user(user_id)
-        other_user = db.get_user(profile_id)
+        other_user = db.get_user(other_id)
 
         # Добавляем лайк
-        db.add_like(user_id, profile_id)
+        db.add_like(user_id, other_id)
 
         # Отправляем уведомление о лайке
         db.add_notification(
-            user_id=profile_id,
+            user_id=other_id,
             from_user_id=user_id,
             from_user_name=current_user['name'],
             from_user_username=current_user['username'],
@@ -445,11 +400,11 @@ class DatingBotHandlers:
         )
 
         # Проверяем, есть ли обратный лайк (матч!)
-        if db.get_matches(profile_id) and user_id in db.get_matches(profile_id):
+        if db.get_matches(other_id) and user_id in db.get_matches(other_id):
             # Создаём уведомления о взаимной симпатии для обоих
             db.add_notification(
                 user_id=user_id,
-                from_user_id=profile_id,
+                from_user_id=other_id,
                 from_user_name=other_user['name'],
                 from_user_username=other_user['username'],
                 notification_type='match',
@@ -457,7 +412,7 @@ class DatingBotHandlers:
             )
 
             db.add_notification(
-                user_id=profile_id,
+                user_id=other_id,
                 from_user_id=user_id,
                 from_user_name=current_user['name'],
                 from_user_username=current_user['username'],
@@ -467,19 +422,19 @@ class DatingBotHandlers:
 
             await event.message.answer(
                 f"💕 МЭТЧ! Вы понравились друг другу!\n\n"
-                f"Напиши {'ей' if other_user['gender'] == 'female' else 'ему'}: /chat_{profile_id}\n"
+                f"Напиши {'ей' if other_user['gender'] == 'female' else 'ему'}: /chat_{other_id}\n"
                 f"или в /messages"
             )
         else:
             # Сообщение об успешном лайке
             await event.message.answer(
-                f"❤️ Вы лайкнули {profile['name']}!\n\n"
+                f"❤️ Вы лайкнули {other_user['name']}!\n\n"
                 f"Если {'ей' if other_user['gender'] == 'female' else 'ему'} вы понравитесь, "
                 f"вы получите уведомление!"
             )
 
         # Показываем следующий профиль
-        await self._show_next_profile(event, data.get('category'))
+        await self._show_next_profile(event, other_user.get('category'))
 
     async def cmd_dislike(self, event: MessageCreated):
         """Дизлайк профилю"""
@@ -1042,7 +997,7 @@ class DatingBotHandlers:
 
     async def _show_next_profile(self, event: MessageCreated, category: str):
         """Показать следующий профиль в категории"""
-        user_id = str(event.message.sender.user_id)
+        user_id = str(event.message.recipient.user_id)
 
         if not category or category not in CATEGORIES:
             buttons = get_browse_category_buttons()
