@@ -325,7 +325,7 @@ class DatingBotHandlers:
 
     async def cmd_browse_start(self, event: MessageCreated):
         """Начало просмотра анкет"""
-        user_id = str(event.message.sender.user_id)
+        user_id = str(event.message.recipient.user_id)
 
         if not db.user_exists(user_id):
             await event.message.answer("❌ Профиль не найден!\n\nПопробуй /start")
@@ -340,8 +340,8 @@ class DatingBotHandlers:
 
     async def cmd_browse_category(self, event: MessageCreated):
         """Просмотр анкет в выбранной категории"""
-        user_id = str(event.message.sender.user_id)
-        category = event.message.body.text[1:]  # Убираем '/'
+        user_id = str(event.message.recipient.user_id)
+        category = event.callback.payload[1:]  # Убираем '/'
 
         if category not in CATEGORIES:
             await event.message.answer("❌ Неизвестная категория")
