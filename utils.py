@@ -72,7 +72,7 @@ def format_user_profile(user: dict) -> str:
 🎯 Интересы:
 {', '.join(categories_names) if categories_names else 'Не указаны'}
 
-📅 На платформе с: {user['created_at'][:10]}
+📅 На платформе с: {user['created_at'].strftime("%Y-%m-%d")}
 """
     return profile_text
 
