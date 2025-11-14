@@ -11,7 +11,7 @@ def get_main_menu_keyboard(unread_count: int = 0) -> str:
     """Главное меню"""
     notification_badge = f" ({unread_count})" if unread_count > 0 else ""
     return f"""
-📋 *Главное меню*
+📋 Главное меню
 
 Выбери действие:
 1️⃣ `/view_profile` - Мой профиль
@@ -58,26 +58,19 @@ def get_browse_category_keyboard() -> str:
 def format_profile_card(profile: dict) -> str:
     """Форматировать карточку профиля"""
     bio = profile.get('bio', 'Нет описания')
-    categories = profile.get('categories', [])
-
-    # Переводим коды категорий в названия
-    categories_names = [CATEGORIES.get(cat, cat) for cat in categories]
 
     card = f"""
-👤 *{profile['name']}*, {profile['age']} лет
+👤 {profile['name']}, {profile['age']} лет
 
 📝 О себе:
 {bio}
-
-🎯 Интересы:
-{', '.join(categories_names) if categories_names else 'Не указаны'}
 """
     return card
 
 def get_edit_profile_keyboard() -> str:
     """Меню редактирования профиля"""
     return """
-📝 *Редактирование профиля*
+📝 Редактирование профиля
 
 Что ты хочешь изменить?
 1️⃣ `/edit_name` - Имя
@@ -100,7 +93,7 @@ def format_matches_list(matches: List[dict]) -> str:
     if not matches:
         return "😔 У тебя пока нет взаимных лайков"
 
-    text = "💕 *Твои мэтчи:*\n\n"
+    text = "💕 Твои мэтчи:\n\n"
     for match in matches:
         text += f"👤 {match['name']}, {match['age']}\n"
         text += f"🏠 `/chat_{match['user_id']}` - Написать\n\n"

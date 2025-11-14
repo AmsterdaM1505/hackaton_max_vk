@@ -438,7 +438,7 @@ class DatingBotHandlers:
 
     async def cmd_dislike(self, event: MessageCreated):
         """Дизлайк профилю"""
-        user_id = str(event.message.sender.user_id)
+        user_id = str(event.message.recipient.user_id)
         state, data = db.get_user_state(user_id)
 
         if state != UserState.VIEWING_PROFILE.value or not data:
@@ -491,7 +491,7 @@ class DatingBotHandlers:
 
     async def cmd_matches(self, event: MessageCreated):
         """Показать мэтчи и чаты"""
-        user_id = str(event.message.sender.user_id)
+        user_id = str(event.message.recipient.user_id)
         matches = []
 
         match_ids = db.get_matches(user_id)
@@ -519,22 +519,21 @@ class DatingBotHandlers:
 
     async def cmd_notifications(self, event: MessageCreated):
         """Показать уведомления"""
-        user_id = str(event.message.sender.user_id)
+        user_id = str(event.message.recipient.user_id)
         notifications = db.get_notifications(user_id)
 
         if not notifications:
             await event.message.answer("📭 У тебя пока нет уведомлений")
         else:
             # Форматируем и отправляем уведомления
-            notification_text = "🔔 *Твои уведомления:*\n\n"
+            notification_text = "🔔 Твои уведомления:\n\n"
 
             for notif in notifications:
                 if notif['notification_type'] == 'like':
-                    notification_text += f"❤️ *Лайк* от {notif['from_user_name']}\n"
+                    notification_text += f"❤️ Лайк от {notif['from_user_name']}\n"
                     notification_text += f"   {notif['message']}\n"
-                    notification_text += f"   @{notif['from_user_username']}\n\n"
                 elif notif['notification_type'] == 'match':
-                    notification_text += f"💕 *МЭТЧ!*\n"
+                    notification_text += f"💕 МЭТЧ!\n"
                     notification_text += f"   {notif['message']}\n\n"
 
             await event.message.answer(notification_text)
@@ -551,7 +550,7 @@ class DatingBotHandlers:
 
     async def cmd_start_chat(self, event: MessageCreated):
         """Начать чат с пользователем (после взаимной симпатии)"""
-        user_id = str(event.message.sender.user_id)
+        user_id = str(event.message.recipient.user_id)
         text = event.message.body.text
 
         # Извлекаем ID пользователя из команды /chat_<user_id>
