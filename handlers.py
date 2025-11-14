@@ -234,10 +234,6 @@ class DatingBotHandlers:
 
     async def cmd_start(self, event: MessageCreated):
         """Команда /start - автоматическая регистрация и в меню"""
-        rep = self.dp
-        CallbackPayload.filter()
-        kek = F.event.message.body.text
-        sf = Dispatcher.Event.callback.payload
         user_id = str(event.message.sender.user_id)
         username = event.message.sender.username or event.message.sender.first_name
         first_name = event.message.sender.first_name or "Друг"
@@ -377,27 +373,25 @@ class DatingBotHandlers:
 
     async def cmd_like(self, event: MessageCreated):
         """Лайк профилю"""
-        user_id = str(event.message.sender.user_id)
-        state, data = db.get_user_state(user_id)
+        user_id = str(event.message.recipient.user_id)
+        state, other_id = db.get_user_state(user_id)
 
-        if state != UserState.VIEWING_PROFILE.value or not data:
+        if state != UserState.VIEWING_PROFILE.value or not other_id:
             await event.message.answer("⚠️ Сначала выбери анкету для просмотра")
             return
 
-        profile = data.get('current_profile')
-        if not profile:
+        if not other_id:
             return
 
-        profile_id = profile['user_id']
         current_user = db.get_user(user_id)
-        other_user = db.get_user(profile_id)
+        other_user = db.get_user(other_id)
 
         # Добавляем лайк
-        db.add_like(user_id, profile_id)
+        db.add_like(user_id, other_id)
 
         # Отправляем уведомление о лайке
         db.add_notification(
-            user_id=profile_id,
+            user_id=other_id,
             from_user_id=user_id,
             from_user_name=current_user['name'],
             from_user_username=current_user['username'],
@@ -406,11 +400,11 @@ class DatingBotHandlers:
         )
 
         # Проверяем, есть ли обратный лайк (матч!)
-        if db.get_matches(profile_id) and user_id in db.get_matches(profile_id):
+        if db.get_matches(other_id) and user_id in db.get_matches(other_id):
             # Создаём уведомления о взаимной симпатии для обоих
             db.add_notification(
                 user_id=user_id,
-                from_user_id=profile_id,
+                from_user_id=other_id,
                 from_user_name=other_user['name'],
                 from_user_username=other_user['username'],
                 notification_type='match',
@@ -418,7 +412,7 @@ class DatingBotHandlers:
             )
 
             db.add_notification(
-                user_id=profile_id,
+                user_id=other_id,
                 from_user_id=user_id,
                 from_user_name=current_user['name'],
                 from_user_username=current_user['username'],
@@ -428,19 +422,19 @@ class DatingBotHandlers:
 
             await event.message.answer(
                 f"💕 МЭТЧ! Вы понравились друг другу!\n\n"
-                f"Напиши {'ей' if other_user['gender'] == 'female' else 'ему'}: /chat_{profile_id}\n"
+                f"Напиши {'ей' if other_user['gender'] == 'female' else 'ему'}: /chat_{other_id}\n"
                 f"или в /messages"
             )
         else:
             # Сообщение об успешном лайке
             await event.message.answer(
-                f"❤️ Вы лайкнули {profile['name']}!\n\n"
+                f"❤️ Вы лайкнули {other_user['name']}!\n\n"
                 f"Если {'ей' if other_user['gender'] == 'female' else 'ему'} вы понравитесь, "
                 f"вы получите уведомление!"
             )
 
         # Показываем следующий профиль
-        await self._show_next_profile(event, data.get('category'))
+        await self._show_next_profile(event, other_user.get('category'))
 
     async def cmd_dislike(self, event: MessageCreated):
         """Дизлайк профилю"""
@@ -1003,7 +997,7 @@ class DatingBotHandlers:
 
     async def _show_next_profile(self, event: MessageCreated, category: str):
         """Показать следующий профиль в категории"""
-        user_id = str(event.message.sender.user_id)
+        user_id = str(event.message.recipient.user_id)
 
         if not category or category not in CATEGORIES:
             buttons = get_browse_category_buttons()

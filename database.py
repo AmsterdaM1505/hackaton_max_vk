@@ -89,7 +89,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS user_states (
                     user_id TEXT PRIMARY KEY,
                     state TEXT,
-                    data JSONB,
+                    other_id TEXT,
                     updated_at TIMESTAMP DEFAULT NOW()
                 )
             ''')
@@ -198,9 +198,6 @@ class Database:
 
             if row:
                 user = dict(row)
-                # Десериализуем JSON поле categories
-                if user['categories'] and isinstance(user['categories'], str):
-                    user['categories'] = json.loads(user['categories'])
                 return user
             return None
         except Exception as e:
@@ -351,7 +348,7 @@ class Database:
 
             if row:
                 user = dict(row)
-                user['categories'] = json.loads(user['categories']) if user['categories'] else []
+                # user['categories'] = json.loads(user['categories']) if user['categories'] else []
                 return user
             return None
         except Exception as e:
@@ -408,16 +405,17 @@ class Database:
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
-            data_json = json.dumps(data) if data else None
+            other_id = data['current_profile']['user_id']
+            # data_json = json.dumps(data.current_profile) if data else None
 
             cursor.execute('''
-                INSERT INTO user_states (user_id, state, data)
+                INSERT INTO user_states (user_id, state, other_id)
                 VALUES (%s, %s, %s)
                 ON CONFLICT (user_id) DO UPDATE SET
                     state = EXCLUDED.state,
-                    data = EXCLUDED.data,
+                    other_id = EXCLUDED.other_id,
                     updated_at = NOW()
-            ''', (user_id, state, data_json))
+            ''', (user_id, state, other_id))
 
             conn.commit()
             cursor.close()
@@ -451,21 +449,13 @@ class Database:
             conn = self.get_connection()
             cursor = conn.cursor(cursor_factory=RealDictCursor)
 
-            cursor.execute('SELECT state, data FROM user_states WHERE user_id = %s', (user_id,))
+            cursor.execute('SELECT state, other_id FROM user_states WHERE user_id = %s', (user_id,))
             row = cursor.fetchone()
             cursor.close()
             conn.close()
 
             if row:
-                # Если data уже словарь, используем как есть
-                if isinstance(row['data'], dict):
-                    data = row['data'] if row['data'] else {}
-                # Если data - строка, десериализуем JSON
-                elif isinstance(row['data'], str):
-                    data = json.loads(row['data']) if row['data'] else {}
-                else:
-                    data = {}
-                return row['state'], data
+                return row['state'], row['other_id']
             return None, {}
         except Exception as e:
             print(f"Error getting user state: {e}")
