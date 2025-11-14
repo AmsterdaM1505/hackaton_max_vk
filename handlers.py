@@ -645,7 +645,7 @@ class DatingBotHandlers:
 
     async def cmd_edit_menu(self, event: MessageCreated):
         """Меню редактирования профиля"""
-        user_id = str(event.message.sender.user_id)
+        user_id = str(event.message.recipient.user_id)
 
         if not db.user_exists(user_id):
             await event.message.answer("❌ Сначала создай свой профиль!\n\n/start")
