@@ -184,23 +184,40 @@ def get_profile_view_buttons() -> ButtonsPayload:
     ])
 
 
-def get_browse_category_buttons() -> ButtonsPayload:
+def get_browse_category_buttons(user=None) -> ButtonsPayload:
     """Inline кнопки выбора категории для просмотра"""
     buttons = []
     current_row = []
+    if user is None:
+        for i, (key, value) in enumerate(CATEGORIES.items(), 1):
+            current_row.append(CallbackButton(text=f"{value}", payload=f"/{key}"))
+            if i % 2 == 0:
+                buttons.append(current_row)
+                current_row = []
 
-    for i, (key, value) in enumerate(CATEGORIES.items(), 1):
-        current_row.append(CallbackButton(text=f"{value}", payload=f"/{key}"))
-        if i % 2 == 0:
+        if current_row:
             buttons.append(current_row)
-            current_row = []
 
-    if current_row:
-        buttons.append(current_row)
+        buttons.append([CallbackButton(text="🏠 В меню", payload="/menu")])
 
-    buttons.append([CallbackButton(text="🏠 В меню", payload="/menu")])
+        return ButtonsPayload(buttons=buttons)
+    else:
+        categories = user.get('categories', [])
+        categories_names = [CATEGORIES.get(cat, cat) for cat in categories]
 
-    return ButtonsPayload(buttons=buttons)
+        for i, (key, value) in enumerate(CATEGORIES.items(), 1):
+            if value in categories_names:
+                current_row.append(CallbackButton(text=f"{value}", payload=f"/{key}"))
+                if i % 2 == 0:
+                    buttons.append(current_row)
+                    current_row = []
+
+        if current_row:
+            buttons.append(current_row)
+
+        buttons.append([CallbackButton(text="🏠 В меню", payload="/menu")])
+
+        return ButtonsPayload(buttons=buttons)
 
 
 def get_edit_profile_buttons() -> ButtonsPayload:

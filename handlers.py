@@ -185,6 +185,7 @@ class DatingBotHandlers:
             # --- Просмотр анкет ---
             case '/browse':
                 await self.cmd_browse_start(event)
+
             case cmd if cmd in [f"/{cat}" for cat in CATEGORIES.keys()]:
                 await self.cmd_browse_category(event)
 
@@ -322,13 +323,16 @@ class DatingBotHandlers:
     async def cmd_browse_start(self, event: MessageCreated):
         """Начало просмотра анкет"""
         user_id = str(event.message.recipient.user_id)
+        user = db.get_user(user_id)
 
         if not db.user_exists(user_id):
             await event.message.answer("❌ Профиль не найден!\n\nПопробуй /start")
             return
 
         db.set_user_state(user_id, UserState.CHOOSE_CATEGORY.value)
-        buttons = get_browse_category_buttons()
+
+        buttons = get_browse_category_buttons(user) # поставить условие на кнопки
+
         await event.message.answer(
             "👀 Выбери категорию анкет:",
             attachments=[buttons.pack()]
