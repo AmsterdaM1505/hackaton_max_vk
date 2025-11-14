@@ -691,7 +691,7 @@ class DatingBotHandlers:
 
     async def cmd_edit_categories(self, event: MessageCreated):
         """Редактировать категории"""
-        user_id = str(event.message.sender.user_id)
+        user_id = str(event.message.recipient.user_id)
         db.set_user_state(user_id, UserState.CHOOSE_CATEGORIES.value, {'editing': True})
         buttons = get_categories_buttons()
         await event.message.answer(
@@ -701,7 +701,7 @@ class DatingBotHandlers:
 
     async def cmd_gender_select(self, event: MessageCreated):
         """Выбор пола"""
-        user_id = str(event.message.sender.user_id)
+        user_id = str(event.message.recipient.user_id)
         gender = 'male' if event.message.body.text == '/gender_male' else 'female'
 
         state, data = db.get_user_state(user_id)
