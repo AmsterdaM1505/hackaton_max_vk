@@ -333,6 +333,7 @@ class Database:
                 SELECT * FROM users
                 WHERE user_id != %s
                 AND categories @> %s::jsonb
+                AND gender != (SELECT gender FROM users WHERE user_id = %s)
                 AND user_id NOT IN (
                     SELECT user_to FROM likes WHERE user_from = %s
                     UNION
@@ -340,7 +341,7 @@ class Database:
                 )
                 ORDER BY RANDOM()
                 LIMIT 1
-            ''', (user_id, json.dumps([category]), user_id, user_id))
+            ''', (user_id, json.dumps([category]), user_id, user_id, user_id))
 
             row = cursor.fetchone()
             cursor.close()
