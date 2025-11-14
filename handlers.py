@@ -305,7 +305,7 @@ class DatingBotHandlers:
 
     async def cmd_view_profile(self, event: MessageCreated):
         """Показать свой профиль"""
-        user_id = str(event.message.sender.user_id)
+        user_id = str(event.message.recipient.user_id)
         user = db.get_user(user_id)
 
         if not user:
