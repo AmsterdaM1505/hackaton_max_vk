@@ -405,17 +405,25 @@ class Database:
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
-            other_id = data['current_profile']['user_id']
             # data_json = json.dumps(data.current_profile) if data else None
-
-            cursor.execute('''
-                INSERT INTO user_states (user_id, state, other_id)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (user_id) DO UPDATE SET
-                    state = EXCLUDED.state,
-                    other_id = EXCLUDED.other_id,
-                    updated_at = NOW()
-            ''', (user_id, state, other_id))
+            if data is None:
+                cursor.execute('''
+                                INSERT INTO user_states (user_id, state)
+                                VALUES (%s, %s)
+                                ON CONFLICT (user_id) DO UPDATE SET
+                                    state = EXCLUDED.state,
+                                    updated_at = NOW()
+                            ''', (user_id, state))
+            else:
+                other_id = data['current_profile']['user_id']
+                cursor.execute('''
+                                INSERT INTO user_states (user_id, state, other_id)
+                                VALUES (%s, %s, %s)
+                                ON CONFLICT (user_id) DO UPDATE SET
+                                    state = EXCLUDED.state,
+                                    other_id = EXCLUDED.other_id,
+                                    updated_at = NOW()
+                            ''', (user_id, state, other_id))
 
             conn.commit()
             cursor.close()
